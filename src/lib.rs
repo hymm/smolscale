@@ -27,19 +27,16 @@ use std::{
 };
 use tabwriter::TabWriter;
 
-mod executor;
 mod fastcounter;
 mod new_executor;
+mod lifetimed_executor;
+mod lifetimed_queues;
 mod queues;
 pub mod reaper;
-pub use executor::*;
+pub use lifetimed_executor::*;
 
 //const CHANGE_THRESH: u32 = 10;
 const MONITOR_MS: u64 = 10;
-
-const MAX_THREADS: usize = 1500;
-
-static POLL_COUNT: Lazy<FastCounter> = Lazy::new(Default::default);
 
 static THREAD_COUNT: AtomicUsize = AtomicUsize::new(0);
 
@@ -179,8 +176,6 @@ struct WrappedFuture<T, F: Future<Output = T>> {
 }
 
 static ACTIVE_TASKS: Lazy<FastCounter> = Lazy::new(Default::default);
-
-static FUTURES_BEING_POLLED: Lazy<FastCounter> = Lazy::new(Default::default);
 
 /// Returns the current number of active tasks.
 pub fn active_task_count() -> usize {
