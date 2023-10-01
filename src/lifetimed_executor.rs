@@ -5,16 +5,51 @@ use futures_lite::{Future, FutureExt};
 
 use crate::lifetimed_queues::{GlobalQueue, LocalQueue};
 
+/// A Send and Sync executor from which [`LifetimedExecutor`]s can be constructed
+// TODO: this global queue almost certainly needs a lifetime too as tasks from
+// the local executor can end up on the global queue.
+#[derive(Clone)]
+pub struct GlobalExecutor {
+    global_queue: GlobalQueue,
+}
+
+impl Default for GlobalExecutor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl GlobalExecutor {
+    pub fn new() -> Self {
+        Self {
+            global_queue: GlobalQueue::new(),
+        }
+    }
+
+    pub fn get_local_executor<'a>(&self) -> LifetimedExecutor<'a> {
+        let global_queue = self.global_queue.clone();
+        let local_queue = self.global_queue.subscribe();
+
+        LifetimedExecutor {
+            global_queue,
+            local_queue,
+            phantom_data: PhantomData,
+        }
+    }
+
+    /// call this in a separate thread to occationally rebalance the tasks
+    pub fn global_rebalance(&self) -> ! {
+        loop {
+            self.global_queue.rebalance();
+            std::thread::sleep(Duration::from_millis(10));
+        }
+    }
+}
+
 pub struct LifetimedExecutor<'a> {
     global_queue: GlobalQueue,
     local_queue: LocalQueue,
     phantom_data: PhantomData<&'a ()>,
-}
-
-impl<'a> Default for LifetimedExecutor<'a> {
-    fn default() -> Self {
-        Self::new()
-    }
 }
 
 impl<'a> LifetimedExecutor<'a> {
@@ -22,16 +57,6 @@ impl<'a> LifetimedExecutor<'a> {
         static LOCAL_EVT: Rc<LocalManualResetEvent> = Rc::new(LocalManualResetEvent::new(false));
 
         static LOCAL_QUEUE_ACTIVE: Cell<bool> = Cell::new(false);
-    }
-
-    pub fn new() -> Self {
-        let global_queue = GlobalQueue::new();
-        let local_queue = global_queue.subscribe();
-        Self {
-            global_queue,
-            local_queue,
-            phantom_data: PhantomData,
-        }
     }
 
     /// Runs a queue
@@ -85,14 +110,6 @@ impl<'a> LifetimedExecutor<'a> {
         runnable.schedule();
         task
     }
-
-    /// call this in a separate thread to occationally rebalance the tasks
-    pub fn global_rebalance(&mut self) -> ! {
-        loop {
-            self.global_queue.rebalance();
-            std::thread::sleep(Duration::from_millis(10));
-        }
-    }
 }
 
 impl<'a> Clone for LifetimedExecutor<'a> {
@@ -109,3 +126,15 @@ impl<'a> Clone for LifetimedExecutor<'a> {
 }
 
 // TODO: impl Drop for Executor to move tasks in local queue to global queue
+
+#[cfg(test)]
+mod tests {
+    use crate::GlobalExecutor;
+
+    #[test]
+    fn global_executor_is_send_sync() {
+        fn is_send_sync<T: Send + Sync>() {}
+
+        is_send_sync::<GlobalExecutor>();
+    }
+}
