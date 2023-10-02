@@ -18,12 +18,11 @@ use std::{
 /// The global task queue, also including handles for stealing from local queues.
 ///
 /// Tasks can be pushed to it. Popping requires first subscribing to it, producing a [LocalQueue], which then can be popped from.
-#[derive(Clone)]
 pub struct GlobalQueue {
-    queue: Arc<parking_lot::Mutex<VecDeque<Runnable>>>,
-    stealers: Arc<ShardedLock<FxHashMap<u64, Stealer<Runnable>>>>,
-    id_ctr: Arc<AtomicU64>,
-    event: Arc<Event>,
+    queue: parking_lot::Mutex<VecDeque<Runnable>>,
+    stealers: ShardedLock<FxHashMap<u64, Stealer<Runnable>>>,
+    id_ctr: AtomicU64,
+    event: Event,
 }
 
 impl GlobalQueue {
@@ -32,8 +31,8 @@ impl GlobalQueue {
         Self {
             queue: Default::default(),
             stealers: Default::default(),
-            id_ctr: Arc::new(AtomicU64::new(0)),
-            event: Arc::new(Event::new()),
+            id_ctr: AtomicU64::new(0),
+            event: Event::new(),
         }
     }
 
@@ -48,30 +47,40 @@ impl GlobalQueue {
         self.event.notify_relaxed(usize::MAX);
     }
 
-    /// Subscribes to tasks, returning a LocalQueue.
-    pub fn subscribe(&self) -> LocalQueue {
-        let worker = Worker::<Runnable>::new(1024);
-        let id = self.id_ctr.fetch_add(1, Ordering::Relaxed);
-        self.stealers.write().unwrap().insert(id, worker.stealer());
-
-        LocalQueue {
-            id,
-            global: self.clone(),
-            local: worker,
-            next_task: RefCell::new(None),
-        }
-    }
-
     /// Wait for activity
     pub fn wait(&self) -> EventListener {
         self.event.listen()
     }
 }
 
+#[derive(Clone)]
+#[repr(transparent)]
+pub struct ArcGlobalQueue(pub Arc<GlobalQueue>);
+
+impl ArcGlobalQueue {
+    pub fn new() -> Self {
+        Self(Arc::new(GlobalQueue::new()))
+    }
+    
+    /// Subscribes to tasks, returning a LocalQueue.
+    pub fn subscribe(&self) -> LocalQueue {
+        let worker = Worker::<Runnable>::new(1024);
+        let id = self.0.id_ctr.fetch_add(1, Ordering::Relaxed);
+        self.0.stealers.write().unwrap().insert(id, worker.stealer());
+
+        LocalQueue {
+            id,
+            global: self.0.clone(),
+            local: worker,
+            next_task: RefCell::new(None),
+        }
+    }
+}
+
 /// A thread-local queue, bound to some [GlobalQueue].
 pub struct LocalQueue {
     id: u64,
-    global: GlobalQueue,
+    global: Arc<GlobalQueue>,
     local: Worker<Runnable>,
 
     next_task: RefCell<Option<Runnable>>,

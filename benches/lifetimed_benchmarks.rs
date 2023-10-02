@@ -11,14 +11,14 @@ const STEPS: usize = 300;
 const LIGHT_TASKS: usize = 25_000;
 
 fn spawn_one(b: &mut criterion::Bencher) {
-    let executor = setup_executor().get_local_executor();
+    let executor = setup_executor();
     b.iter(move || {
         future::block_on(async { executor.spawn(async {}).await });
     });
 }
 
 fn spawn_many(b: &mut criterion::Bencher) {
-    let executor = setup_executor().get_local_executor();
+    let executor = setup_executor();
     b.iter(move || {
         future::block_on(async {
             let mut tasks = Vec::new();
@@ -33,7 +33,7 @@ fn spawn_many(b: &mut criterion::Bencher) {
 }
 
 fn yield_now(b: &mut criterion::Bencher) {
-    let executor = setup_executor().get_local_executor();
+    let executor = setup_executor();
     b.iter(move || {
         future::block_on(async {
             let mut tasks = Vec::new();
@@ -71,8 +71,7 @@ fn yield_now(b: &mut criterion::Bencher) {
 
 fn ping_pong(b: &mut criterion::Bencher) {
     const NUM_PINGS: usize = 1_000;
-    let global_executor = setup_executor();
-    let executor = global_executor.get_local_executor();
+    let executor = setup_executor();
 
     let (send, recv) = async_channel::bounded::<async_oneshot::Sender<_>>(10);
     let _task: Task<Option<()>> = executor.spawn(async move {
@@ -96,7 +95,7 @@ fn ping_pong(b: &mut criterion::Bencher) {
 fn fanout(b: &mut criterion::Bencher) {
     const NUM_TASKS: usize = 1_000;
     const NUM_ITER: usize = 1_000;
-    let executor = setup_executor().get_local_executor();
+    let executor = setup_executor();
 
     let (send, recv) = async_channel::bounded(1);
     let _tasks = (0..NUM_TASKS)
@@ -124,7 +123,7 @@ fn fanout(b: &mut criterion::Bencher) {
 fn context_switch_quiet(b: &mut criterion::Bencher) {
     let (send, mut recv) = async_channel::bounded::<usize>(1);
     let mut tasks: Vec<Task<Option<()>>> = vec![];
-    let executor = setup_executor().get_local_executor();
+    let executor = setup_executor();
     for _ in 0..TASKS {
         let old_recv = recv.clone();
         let (new_send, new_recv) = async_channel::bounded(1);
@@ -146,7 +145,7 @@ fn context_switch_quiet(b: &mut criterion::Bencher) {
 fn context_switch_busy(b: &mut criterion::Bencher) {
     let (send, mut recv) = async_channel::bounded::<usize>(1);
     let mut tasks: Vec<Task<Option<()>>> = vec![];
-    let executor = setup_executor().get_local_executor();
+    let executor = setup_executor();
     for _ in 0..TASKS / 10 {
         let old_recv = recv.clone();
         let (new_send, new_recv) = async_channel::bounded(1);
@@ -181,7 +180,7 @@ fn setup_executor() -> GlobalExecutor<'static> {
     for _ in 0..available_parallelism().unwrap().into() {
         let executor = executor.clone();
         std::thread::spawn(move || {
-            let local_executor = executor.get_local_executor();
+            let local_executor = executor;
             loop {
                 futures_lite::future::block_on(local_executor.run_local_queue());
             }
