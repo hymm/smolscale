@@ -4,7 +4,7 @@ use std::thread::available_parallelism;
 use async_executor::Task;
 use futures_lite::future;
 
-use smolscale::GlobalExecutor;
+use smolscale::Executor;
 
 const TASKS: usize = 300;
 const STEPS: usize = 300;
@@ -175,8 +175,8 @@ fn context_switch_busy(b: &mut criterion::Bencher) {
     });
 }
 
-fn setup_executor() -> GlobalExecutor<'static> {
-    let executor = GlobalExecutor::new();
+fn setup_executor() -> Executor<'static> {
+    let executor = Executor::new();
     for _ in 0..available_parallelism().unwrap().into() {
         let executor = executor.clone();
         std::thread::spawn(move || {

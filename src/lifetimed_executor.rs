@@ -11,20 +11,20 @@ use crate::lifetimed_queues::{ArcGlobalQueue, LocalQueue};
 // TODO: this global queue almost certainly needs a lifetime too as tasks from
 // the local executor can end up on the global queue.
 #[derive(Clone)]
-pub struct GlobalExecutor<'a> {
+pub struct Executor<'a> {
     global_queue: ArcGlobalQueue,
     // we can't use a static thread local, because each separate executor should have it's own set of local queues
     local_queue: Arc<ThreadLocal<LocalQueue>>,
     phantom_data: PhantomData<&'a ()>,
 }
 
-impl<'a> Default for GlobalExecutor<'a> {
+impl<'a> Default for Executor<'a> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<'a> GlobalExecutor<'a> {
+impl<'a> Executor<'a> {
     thread_local! {
         static LOCAL_EVT: Rc<LocalManualResetEvent> = Rc::new(LocalManualResetEvent::new(false));
 
@@ -116,18 +116,18 @@ mod tests {
         FutureExt,
     };
 
-    use crate::GlobalExecutor;
+    use crate::Executor;
 
     #[test]
     fn global_executor_is_send_sync() {
         fn is_send_sync<T: Send + Sync>() {}
 
-        is_send_sync::<GlobalExecutor>();
+        is_send_sync::<Executor>();
     }
 
     #[test]
     fn can_run_a_task() {
-        let executor = GlobalExecutor::new();
+        let executor = Executor::new();
         let count = AtomicU16::new(0);
 
         let task = executor.spawn(async {
@@ -141,7 +141,7 @@ mod tests {
 
     #[test]
     fn can_yield() {
-        let executor = GlobalExecutor::new();
+        let executor = Executor::new();
         let count = AtomicU16::new(0);
 
         let task = executor.spawn(async {
