@@ -71,7 +71,8 @@ fn yield_now(b: &mut criterion::Bencher) {
 
 fn ping_pong(b: &mut criterion::Bencher) {
     const NUM_PINGS: usize = 1_000;
-    let executor = setup_executor().get_local_executor();
+    let global_executor = setup_executor();
+    let executor = global_executor.get_local_executor();
 
     let (send, recv) = async_channel::bounded::<async_oneshot::Sender<_>>(10);
     let _task: Task<Option<()>> = executor.spawn(async move {
@@ -175,7 +176,7 @@ fn context_switch_busy(b: &mut criterion::Bencher) {
     });
 }
 
-fn setup_executor() -> GlobalExecutor {
+fn setup_executor() -> GlobalExecutor<'static> {
     let executor = GlobalExecutor::new();
     for _ in 0..available_parallelism().unwrap().into() {
         let executor = executor.clone();

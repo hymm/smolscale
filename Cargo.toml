@@ -48,6 +48,7 @@ smallvec = "1.10.0"
 st3 = "0.4"
 tabwriter = "1.2.1"
 waker-fn = "1.1.0"
+thread_local = "1.1.7"
 
 [profile.release]
 debug = 2

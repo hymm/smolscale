@@ -131,7 +131,8 @@ impl LocalQueue {
             let to_steal = (global.len() / 2 + 1).min(64).min(global.len());
             for _ in 0..to_steal {
                 let stolen = global.pop_front().unwrap();
-                self.local.push(stolen).expect("should not overflow here")
+                // TODO: why should this never overflow?
+                self.local.push(stolen).expect("should not overflow here!")
             }
             return self.local.pop();
         }
