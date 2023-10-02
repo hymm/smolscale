@@ -1,4 +1,4 @@
-use std::{cell::Cell, marker::PhantomData, rc::Rc, sync::Arc, time::Duration};
+use std::{cell::Cell, marker::PhantomData, rc::Rc, sync::Arc, time::Duration, panic::{UnwindSafe, RefUnwindSafe}};
 
 use async_task::Runnable;
 use futures_intrusive::sync::LocalManualResetEvent;
@@ -17,6 +17,10 @@ pub struct Executor<'a> {
     local_queue: Arc<ThreadLocal<LocalQueue>>,
     phantom_data: PhantomData<&'a ()>,
 }
+
+// TODO: figure out if this is true. I think it is, but needs more thought
+impl UnwindSafe for Executor<'_> {}
+impl RefUnwindSafe for Executor<'_> {}
 
 impl<'a> Default for Executor<'a> {
     fn default() -> Self {
