@@ -18,6 +18,7 @@ use std::{
 /// The global task queue, also including handles for stealing from local queues.
 ///
 /// Tasks can be pushed to it. Popping requires first subscribing to it, producing a [LocalQueue], which then can be popped from.
+#[derive(Debug)]
 pub struct GlobalQueue {
     queue: parking_lot::Mutex<VecDeque<Runnable>>,
     stealers: ShardedLock<FxHashMap<u64, Stealer<Runnable>>>,
@@ -53,7 +54,7 @@ impl GlobalQueue {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 #[repr(transparent)]
 pub struct ArcGlobalQueue(pub Arc<GlobalQueue>);
 
@@ -78,6 +79,7 @@ impl ArcGlobalQueue {
 }
 
 /// A thread-local queue, bound to some [GlobalQueue].
+#[derive(Debug)]
 pub struct LocalQueue {
     id: u64,
     global: Arc<GlobalQueue>,

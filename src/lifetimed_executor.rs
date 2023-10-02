@@ -10,7 +10,7 @@ use crate::lifetimed_queues::{ArcGlobalQueue, LocalQueue};
 /// A Send and Sync executor from which [`LifetimedExecutor`]s can be constructed
 // TODO: this global queue almost certainly needs a lifetime too as tasks from
 // the local executor can end up on the global queue.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Executor<'a> {
     global_queue: ArcGlobalQueue,
     // we can't use a static thread local, because each separate executor should have it's own set of local queues
