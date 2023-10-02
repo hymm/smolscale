@@ -79,7 +79,7 @@ impl<'a> Executor<'a> {
     }
 
     /// Spawns a task
-    pub fn spawn<T: Send + 'static>(
+    pub fn spawn<T: Send + 'a>(
         &self,
         future: impl Future<Output = T> + Send + 'a,
     ) -> async_task::Task<T> {
