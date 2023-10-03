@@ -12,7 +12,7 @@ use std::{
     sync::{
         atomic::{AtomicU64, Ordering},
         Arc,
-    },
+    }, task::Waker,
 };
 
 /// The global task queue, also including handles for stealing from local queues.
@@ -64,15 +64,16 @@ impl ArcGlobalQueue {
     }
     
     /// Subscribes to tasks, returning a LocalQueue.
-    pub fn subscribe(&self) -> LocalQueue {
+    pub fn subscribe(&self, waker: Waker) -> LocalQueue {
         let worker = Worker::<Runnable>::new(1024);
         let id = self.0.id_ctr.fetch_add(1, Ordering::Relaxed);
         self.0.stealers.write().unwrap().insert(id, worker.stealer());
 
         LocalQueue {
             id,
-            global: self.0.clone(),
+            global: self.clone(),
             local: worker,
+            waker,
             next_task: RefCell::new(None),
         }
     }
@@ -82,8 +83,9 @@ impl ArcGlobalQueue {
 #[derive(Debug)]
 pub struct LocalQueue {
     id: u64,
-    global: Arc<GlobalQueue>,
+    pub global: ArcGlobalQueue,
     local: Worker<Runnable>,
+    pub waker: Waker,
 
     next_task: RefCell<Option<Runnable>>,
 }
@@ -92,10 +94,10 @@ impl Drop for LocalQueue {
     fn drop(&mut self) {
         // push all the local tasks to the global queue
         while let Some(task) = self.local.pop() {
-            self.global.push(task);
+            self.global.0.push(task);
         }
         // deregister the local queue from the global list
-        self.global.stealers.write().unwrap().remove(&self.id);
+        self.global.0.stealers.write().unwrap().remove(&self.id);
     }
 }
 
@@ -114,7 +116,7 @@ impl LocalQueue {
         if let Some(runnable) = self.next_task.borrow_mut().replace(runnable) {
             if let Err(runnable) = self.local.push(runnable) {
                 log::trace!("{} pushed globally", self.id);
-                self.global.push(runnable);
+                self.global.0.push(runnable);
             } else {
                 log::trace!("{} pushed locally", self.id);
             }
@@ -124,7 +126,7 @@ impl LocalQueue {
     /// Steals a whole batch and pops one.
     fn steal_and_pop(&self) -> Option<Runnable> {
         {
-            let stealers = self.global.stealers.read().unwrap();
+            let stealers = self.global.0.stealers.read().unwrap();
             let mut ids: SmallVec<[u64; 64]> = stealers.keys().copied().collect();
             fastrand::shuffle(&mut ids);
             for id in ids {
@@ -138,7 +140,7 @@ impl LocalQueue {
         }
 
         // try stealing from the global
-        if let Some(mut global) = self.global.queue.try_lock() {
+        if let Some(mut global) = self.global.0.queue.try_lock() {
             let to_steal = (global.len() / 2 + 1).min(64).min(global.len());
             for _ in 0..to_steal {
                 let stolen = global.pop_front().unwrap();
