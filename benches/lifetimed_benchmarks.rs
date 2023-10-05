@@ -91,13 +91,14 @@ fn ping_pong(group: &mut BenchmarkGroup<WallTime>) {
         });
         b.iter(|| {
             let send = send.clone();
-            future::block_on(async move {
+            let task = executor.spawn(async move {
                 for _ in 0..NUM_PINGS {
                     let (os_send, os_recv) = async_oneshot::oneshot();
                     send.send(os_send).await.unwrap();
                     os_recv.await.unwrap();
                 }
             });
+            future::block_on(task);
         });
     });
 }
@@ -123,11 +124,12 @@ fn fanout(group: &mut BenchmarkGroup<WallTime>) {
             .collect::<Vec<_>>();
         b.iter(|| {
             let send = send.clone();
-            future::block_on(async move {
+            let task = executor.spawn(async move {
                 for _ in 0..NUM_ITER {
                     send.send(()).await.unwrap();
                 }
-            })
+            });
+            future::block_on(task);
         })
     });
 }
