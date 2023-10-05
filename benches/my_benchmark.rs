@@ -174,15 +174,16 @@ fn context_switch_busy(b: &mut criterion::Bencher) {
 
 fn criterion_benchmark(c: &mut Criterion) {
     let _ = env_logger::try_init();
-    c.bench_function("spawn_one", spawn_one);
-    c.bench_function("spawn_many", spawn_many);
-    c.bench_function("yield_now", yield_now);
-    c.bench_function("fanout", fanout);
+    let mut group = c.benchmark_group("my_benchmark");
+    group.bench_function("spawn_one", spawn_one);
+    group.bench_function("spawn_many", spawn_many);
+    group.bench_function("yield_now", yield_now);
+    group.bench_function("fanout", fanout);
     // c.bench_function("busy_loops", busy_loops);
-    c.bench_function("ping_pong", ping_pong);
+    group.bench_function("ping_pong", ping_pong);
 
-    c.bench_function("context_switch_quiet", context_switch_quiet);
-    c.bench_function("context_switch_busy", context_switch_busy);
+    group.bench_function("context_switch_quiet", context_switch_quiet);
+    group.bench_function("context_switch_busy", context_switch_busy);
 }
 
 criterion_group!(benches, criterion_benchmark);

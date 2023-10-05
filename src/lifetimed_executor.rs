@@ -181,20 +181,16 @@ impl Queues {
                     let waker = cx.waker();
                     move |slot| {
                         let mut slot = slot.borrow_mut();
-                        let local_queue = match slot.as_mut() {
-                            None => {
-                                *slot = Some(self.global_queue.subscribe(waker.clone()));
+                        if let Some(local_queue) = slot.as_mut() {
+                            if !Arc::ptr_eq(&local_queue.global.0, &self.global_queue.0) {
                                 return;
                             }
-                            Some(local_queue) => local_queue,
-                        };
 
-                        if !Arc::ptr_eq(&local_queue.global.0, &self.global_queue.0) {
-                            return;
-                        }
-
-                        if !local_queue.waker.will_wake(waker) {
-                            local_queue.waker = waker.clone();
+                            if !local_queue.waker.will_wake(waker) {
+                                local_queue.waker = waker.clone();
+                            }
+                        } else {
+                            *slot = Some(self.global_queue.subscribe(waker.clone()));
                         }
                     }
                 })

@@ -196,13 +196,13 @@ fn context_switch_busy(group: &mut BenchmarkGroup<WallTime>) {
 
 fn setup_executor() -> Executor<'static> {
     let executor = Executor::new();
+
     for _ in 0..available_parallelism().unwrap().into() {
         let executor = executor.clone();
         std::thread::spawn(move || {
             let local_executor = executor;
-            loop {
-                futures_lite::future::block_on(local_executor.run_local_queue());
-            }
+
+            futures_lite::future::block_on(local_executor.run_local_queue());
         });
     }
     let executor_cloned = executor.clone();
