@@ -6,7 +6,7 @@ use std::thread::available_parallelism;
 use async_executor::Task;
 use futures_lite::future;
 
-use smolscale::Executor;
+use smolscale::{poll_random::poll_random, Executor};
 
 const TASKS: usize = 300;
 const STEPS: usize = 300;
@@ -98,7 +98,7 @@ fn ping_pong(group: &mut BenchmarkGroup<WallTime>) {
                     os_recv.await.unwrap();
                 }
             });
-            future::block_on(task);
+            future::block_on(poll_random(1, task));
         });
     });
 }
@@ -129,7 +129,7 @@ fn fanout(group: &mut BenchmarkGroup<WallTime>) {
                     send.send(()).await.unwrap();
                 }
             });
-            future::block_on(task);
+            future::block_on(poll_random(1, task));
         })
     });
 }
