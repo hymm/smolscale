@@ -12,7 +12,8 @@ use std::{
     sync::{
         atomic::{AtomicU64, Ordering},
         Arc,
-    }, task::Waker,
+    },
+    task::Waker,
 };
 
 /// The global task queue, also including handles for stealing from local queues.
@@ -62,12 +63,16 @@ impl ArcGlobalQueue {
     pub fn new() -> Self {
         Self(Arc::new(GlobalQueue::new()))
     }
-    
+
     /// Subscribes to tasks, returning a LocalQueue.
     pub fn subscribe(&self, waker: Waker) -> LocalQueue {
         let worker = Worker::<Runnable>::new(1024);
         let id = self.0.id_ctr.fetch_add(1, Ordering::Relaxed);
-        self.0.stealers.write().unwrap().insert(id, worker.stealer());
+        self.0
+            .stealers
+            .write()
+            .unwrap()
+            .insert(id, worker.stealer());
 
         LocalQueue {
             id,

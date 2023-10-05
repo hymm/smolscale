@@ -28,9 +28,9 @@ use std::{
 use tabwriter::TabWriter;
 
 mod fastcounter;
-mod new_executor;
 mod lifetimed_executor;
 mod lifetimed_queues;
+mod new_executor;
 mod queues;
 pub mod reaper;
 pub use lifetimed_executor::*;

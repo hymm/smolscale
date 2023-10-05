@@ -69,7 +69,7 @@ impl<'a> Executor<'a> {
                     let local_evt = async {
                         let local = Self::LOCAL_EVT.with(|le| le.clone());
                         local.wait().await;
-                log::debug!("local fired!");
+                        log::debug!("local fired!");
                         local.reset();
                     };
                     let evt = local_evt.or(self.queues.global_queue.0.wait());
